@@ -2,7 +2,7 @@
   <div class="list">
     <ListItem
       v-for="(item, index) in list"
-      :key="index"
+      :key="item + '_' + index"
       :text="item"
       :index="index"
       @update="updateItem"
@@ -21,6 +21,7 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 import ListItem from "../components/ListItem.vue";
 
 export default defineComponent({
@@ -29,8 +30,16 @@ export default defineComponent({
   },
   setup() {
     const doc = new Y.Doc();
-    const yarray = doc.getArray<string>("my-array");
+    const wsProvider = new WebsocketProvider(
+      "ws://localhost:12345",
+      "my-list",
+      doc
+    );
+    wsProvider.on("status", (event: Event) => {
+      console.log("WebsocketProvider status", event);
+    });
 
+    const yarray = doc.getArray<string>("my-array");
     yarray.observe(() => {
       list.value = yarray.toArray();
     });
