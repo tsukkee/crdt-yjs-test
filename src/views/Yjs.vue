@@ -1,6 +1,6 @@
 <template>
   <div class="info">
-    <button @click="undo">←undo</button> <button @click="redo">→redo</button>
+    <div>Network status: {{ networkStatus }}</div>
     <div>
       User name: <input v-model="userName" type="text" /><button
         @click="setUserName"
@@ -16,6 +16,9 @@
     </ul>
   </div>
   <div class="list">
+    <div>
+      <button @click="undo">←undo</button> <button @click="redo">→redo</button>
+    </div>
     <ListItem
       v-for="(item, index) in list"
       :key="item + '_' + index"
@@ -28,9 +31,7 @@
       @blur="blurItem"
     />
     <div>
-      <input v-model="inputText" type="text" /><button
-        @click="addItem(inputText)"
-      >
+      <input v-model="inputText" type="text" /><button @click="addItem">
         add
       </button>
     </div>
@@ -59,19 +60,32 @@ export default defineComponent({
     ListItem,
   },
   setup() {
+    // yjs
     const doc = new Y.Doc();
     const wsProvider = new WebsocketProvider(
       "ws://localhost:12345",
       "my-list",
       doc
     );
-    wsProvider.on("status", (event: Event) => {
-      console.log("WebsocketProvider status", event);
-    });
-    const awareness = wsProvider.awareness;
-    awareness.on("change", (changes: any[]) => {
-      console.log("awareness", changes, awareness.getStates());
 
+    // network status
+    const networkStatus = ref("disconnected");
+    wsProvider.on("status", (event: { status: string }) => {
+      networkStatus.value = event.status;
+    });
+
+    // awareness
+    const users = ref<User[]>([]);
+    const userMap = computed(() => {
+      const map = new Map<number, string>();
+      users.value.forEach((user) => {
+        map.set(user.index, user.name);
+      });
+      return map;
+    });
+
+    const awareness = wsProvider.awareness;
+    awareness.on("change", () => {
       users.value = Array.from(awareness.getStates().entries())
         .map(([key, value]) => {
           const user = value.user as UserState | undefined;
@@ -84,15 +98,35 @@ export default defineComponent({
         .filter((user) => user.id !== doc.clientID);
     });
 
+    const userName = ref("");
+    const focusedIndex = ref(-1);
+    const setUserName = () => {
+      awareness.setLocalStateField("user", {
+        name: userName.value,
+        index: focusedIndex.value,
+      });
+    };
+    const focusItem = (index: number) => {
+      focusedIndex.value = index;
+      setUserName();
+    };
+
+    const blurItem = () => {
+      focusedIndex.value = -1;
+      setUserName();
+    };
+
+    // list data
     const yarray = doc.getArray<string>("my-array");
+    const list = ref<string[]>([]);
     yarray.observe(() => {
       list.value = yarray.toArray();
     });
 
-    const undoManager = new Y.UndoManager(yarray);
-
-    const addItem = (text: string) => {
-      yarray.insert(list.value.length, [text]);
+    const inputText = ref("");
+    const addItem = () => {
+      yarray.insert(list.value.length, [inputText.value]);
+      inputText.value = "";
     };
 
     const updateItem = (text: string, index: number) => {
@@ -106,54 +140,33 @@ export default defineComponent({
       yarray.delete(index);
     };
 
-    const focusItem = (index: number) => {
-      focusedIndex.value = index;
-      setUserName();
-    };
-
-    const blurItem = () => {
-      focusedIndex.value = -1;
-      setUserName();
-    };
-
-    const setUserName = () => {
-      awareness.setLocalStateField("user", {
-        name: userName.value,
-        index: focusedIndex.value,
-      });
-    };
-
+    // undo/redo
+    const undoManager = new Y.UndoManager(yarray);
     const undo = () => undoManager.undo();
     const redo = () => undoManager.redo();
 
-    const userName = ref("");
-    const inputText = ref("");
-    const list = ref<string[]>([]);
-    const users = ref<User[]>([]);
-    const focusedIndex = ref(-1);
-
-    const userMap = computed(() => {
-      const map = new Map<number, string>();
-      users.value.forEach((user) => {
-        map.set(user.index, user.name);
-      });
-      return map;
-    });
-
     return {
+      // network status
+      networkStatus,
+
+      // awareness
+      userName,
+      users,
+      userMap,
+      setUserName,
+      focusItem,
+      blurItem,
+
+      // list data
+      list,
+      inputText,
       addItem,
       updateItem,
       removeItem,
-      focusItem,
-      blurItem,
-      setUserName,
+
+      // undo/redo
       undo,
       redo,
-      userName,
-      userMap,
-      inputText,
-      list,
-      users,
     };
   },
 });
