@@ -124,8 +124,13 @@ export default defineComponent({
 .info {
   margin-bottom: 12px;
 
+  ul {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   li {
-    width: 20em;
+    width: 25em;
     text-align: left;
   }
 }
