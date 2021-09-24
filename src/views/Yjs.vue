@@ -39,7 +39,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from "vue";
+import { defineComponent, ref, computed, customRef } from "vue";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import ListItem from "../components/ListItem.vue";
@@ -53,6 +53,29 @@ type User = {
 type UserState = {
   name: string;
   index: number;
+};
+
+// prettier-ignore
+const yArrayRef = <T,>(yarray: Y.Array<T>) => {
+  return customRef<T[]>((track, trigger) => {
+    yarray.observe(() => {
+      trigger();
+    });
+
+    return {
+      get() {
+        track();
+        return yarray.toArray();
+      },
+      set(newValue: T[]) {
+        yarray.doc?.transact(() => {
+          yarray.delete(0, yarray.length);
+          yarray.insert(0, newValue);
+          trigger();
+        });
+      },
+    };
+  });
 };
 
 export default defineComponent({
@@ -118,10 +141,7 @@ export default defineComponent({
 
     // list data
     const yarray = doc.getArray<string>("my-array");
-    const list = ref<string[]>([]);
-    yarray.observe(() => {
-      list.value = yarray.toArray();
-    });
+    const list = yArrayRef(yarray);
 
     const inputText = ref("");
     const addItem = () => {
