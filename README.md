@@ -1,5 +1,11 @@
 # crdt-yjs-test
 
+## Run yjs WebSocket server
+```
+PORT=12345 npx y-websocket-server
+```
+
+
 ## Project setup
 ```
 yarn install
