@@ -1,10 +1,13 @@
 <template>
-  <div>
-    <ul>
-      <li v-for="(item, index) in list" :key="index">
-        {{ item }}
-      </li>
-    </ul>
+  <div class="list">
+    <ListItem
+      v-for="(item, index) in list"
+      :key="index"
+      :text="item"
+      :index="index"
+      @update="updateItem"
+      @remove="removeItem"
+    />
     <div>
       <input v-model="inputText" type="text" /><button
         @click="addItem(inputText)"
@@ -18,8 +21,12 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import * as Y from "yjs";
+import ListItem from "../components/ListItem.vue";
 
 export default defineComponent({
+  components: {
+    ListItem,
+  },
   setup() {
     const doc = new Y.Doc();
     const yarray = doc.getArray<string>("my-array");
@@ -29,7 +36,18 @@ export default defineComponent({
     });
 
     const addItem = (text: string) => {
-      yarray.insert(list.value.length - 1, [text]);
+      yarray.insert(list.value.length, [text]);
+    };
+
+    const updateItem = (text: string, index: number) => {
+      doc.transact(() => {
+        yarray.delete(index);
+        yarray.insert(index, [text]);
+      });
+    };
+
+    const removeItem = (index: number) => {
+      yarray.delete(index);
     };
 
     const inputText = ref("");
@@ -37,6 +55,8 @@ export default defineComponent({
 
     return {
       addItem,
+      updateItem,
+      removeItem,
       inputText,
       list,
     };
@@ -44,4 +64,11 @@ export default defineComponent({
 });
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+</style>
