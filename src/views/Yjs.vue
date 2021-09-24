@@ -1,5 +1,6 @@
 <template>
   <div class="info">
+    <button @click="undo">←undo</button> <button @click="redo">→redo</button>
     <div>
       User name: <input v-model="userName" type="text" /><button
         @click="setUserName"
@@ -88,6 +89,8 @@ export default defineComponent({
       list.value = yarray.toArray();
     });
 
+    const undoManager = new Y.UndoManager(yarray);
+
     const addItem = (text: string) => {
       yarray.insert(list.value.length, [text]);
     };
@@ -120,6 +123,9 @@ export default defineComponent({
       });
     };
 
+    const undo = () => undoManager.undo();
+    const redo = () => undoManager.redo();
+
     const userName = ref("");
     const inputText = ref("");
     const list = ref<string[]>([]);
@@ -141,6 +147,8 @@ export default defineComponent({
       focusItem,
       blurItem,
       setUserName,
+      undo,
+      redo,
       userName,
       userMap,
       inputText,
