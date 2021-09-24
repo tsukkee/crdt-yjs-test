@@ -7,9 +7,11 @@
         set
       </button>
     </div>
-    Users:
+    Other users:
     <ul>
-      <li v-for="user in users" :key="user.id">{{ user.name }}</li>
+      <li v-for="user in users" :key="user.id">
+        {{ user.name }}
+      </li>
     </ul>
   </div>
   <div class="list">
@@ -18,8 +20,11 @@
       :key="item + '_' + index"
       :text="item"
       :index="index"
+      :user="userMap.get(index)"
       @update="updateItem"
       @remove="removeItem"
+      @focus="focusItem"
+      @blur="blurItem"
     />
     <div>
       <input v-model="inputText" type="text" /><button
@@ -32,7 +37,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from "vue";
+import { defineComponent, ref, computed } from "vue";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import ListItem from "../components/ListItem.vue";
@@ -40,10 +45,12 @@ import ListItem from "../components/ListItem.vue";
 type User = {
   id: number;
   name: string;
+  index: number;
 };
 
 type UserState = {
   name: string;
+  index: number;
 };
 
 export default defineComponent({
@@ -64,15 +71,16 @@ export default defineComponent({
     awareness.on("change", (changes: any[]) => {
       console.log("awareness", changes, awareness.getStates());
 
-      users.value = Array.from(awareness.getStates().entries()).map(
-        ([key, value]) => {
-          const user = value.user as UserState;
+      users.value = Array.from(awareness.getStates().entries())
+        .map(([key, value]) => {
+          const user = value.user as UserState | undefined;
           return {
             id: key,
-            name: user.name,
+            name: user?.name ?? "",
+            index: user?.index ?? -1,
           };
-        }
-      );
+        })
+        .filter((user) => user.id !== doc.clientID);
     });
 
     const yarray = doc.getArray<string>("my-array");
@@ -95,9 +103,20 @@ export default defineComponent({
       yarray.delete(index);
     };
 
+    const focusItem = (index: number) => {
+      focusedIndex.value = index;
+      setUserName();
+    };
+
+    const blurItem = () => {
+      focusedIndex.value = -1;
+      setUserName();
+    };
+
     const setUserName = () => {
       awareness.setLocalStateField("user", {
         name: userName.value,
+        index: focusedIndex.value,
       });
     };
 
@@ -105,13 +124,25 @@ export default defineComponent({
     const inputText = ref("");
     const list = ref<string[]>([]);
     const users = ref<User[]>([]);
+    const focusedIndex = ref(-1);
+
+    const userMap = computed(() => {
+      const map = new Map<number, string>();
+      users.value.forEach((user) => {
+        map.set(user.index, user.name);
+      });
+      return map;
+    });
 
     return {
       addItem,
       updateItem,
       removeItem,
+      focusItem,
+      blurItem,
       setUserName,
       userName,
+      userMap,
       inputText,
       list,
       users,
@@ -122,16 +153,12 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .info {
-  margin-bottom: 12px;
+  width: 25em;
+  margin: 0 auto 12px auto;
+  text-align: left;
 
   ul {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  li {
-    width: 25em;
-    text-align: left;
+    margin: 0;
   }
 }
 
